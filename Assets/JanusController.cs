@@ -3,33 +3,33 @@ using System;
 using System.Collections;
 using SocketIO;
 
-public class BrowserOptions{
-	public string plugin;
-	public string server;
-
-	public BrowserOptions(string address){
-		this.plugin = "janus.plugin.telexistence";
-		this.server = string.Format("http://{0}:8088/janus", address);
-	}
-
-	public JSONObject JsonObject(){
-		var json = new JSONObject(JSONObject.Type.OBJECT);
-		json.AddField("plugin", this.plugin);
-		json.AddField("server", this.server);
-		return json;
-	}
-}
-
 public class BindParameters{
-	public BrowserOptions browserOptions;
+	class BrowserOptions{
+		public string plugin;
+		public string server;
+
+		public BrowserOptions(string address){
+			this.plugin = "janus.plugin.telexistence";
+			this.server = string.Format("http://{0}:8088/janus", address);
+		}
+
+		public JSONObject JsonObject(){
+			var json = new JSONObject(JSONObject.Type.OBJECT);
+			json.AddField("plugin", this.plugin);
+			json.AddField("server", this.server);
+			return json;
+		}
+	}
+
+	private BrowserOptions browserOptions_;
 
 	public BindParameters(string server){
-		this.browserOptions = new BrowserOptions(server);
+		this.browserOptions_ = new BrowserOptions(server);
 	}
 
 	public JSONObject JsonObject(){
 		var json = new JSONObject(JSONObject.Type.OBJECT);
-		var innerJson = this.browserOptions.JsonObject();
+		var innerJson = this.browserOptions_.JsonObject();
 		json.AddField("browserOptions", innerJson);
 		return json;
 	}
@@ -67,6 +67,78 @@ public class LoginParameters{
 	}
 }
 
+public class CreateStreamParameters{
+	class StreamOptions{
+		private int aport_;
+		private int vport_;
+
+		public StreamOptions(int aport, int vport){
+			this.aport_ = aport;
+			this.vport_ = vport;
+		}
+
+		public JSONObject JsonObject(){
+			var json = new JSONObject(JSONObject.Type.OBJECT);
+			json.AddField("aflag", true);
+			json.AddField("aport", this.aport_);
+			json.AddField("apt", 111);
+			json.AddField("aformat", "opus/48000/2");
+			json.AddField("vflag", true);
+			json.AddField("vport", this.vport_);
+			json.AddField("vpt", 100);
+			json.AddField("vformat", "VP8/90000");
+			return json;
+		}
+	}
+
+	private StreamOptions options_;
+
+	public CreateStreamParameters(int aport, int vport){
+		this.options_ = new StreamOptions(aport, vport);
+	}
+
+	public JSONObject JsonObject(){
+		var json = new JSONObject(JSONObject.Type.OBJECT);
+		var innerJson = this.options_.JsonObject();
+		json.AddField("streamOptions", innerJson);
+		return json;
+	}
+}
+
+public class CallParameters{
+	class CallOptions{
+		private string targetId_;
+
+		public CallOptions(string targetId){
+			this.targetId_ = targetId;
+		}
+
+		public JSONObject JsonObject(){
+			var json = new JSONObject(JSONObject.Type.OBJECT);
+			var innerJson = new JSONObject(JSONObject.Type.OBJECT);
+			innerJson.AddField("audio", true);
+			innerJson.AddField("video", true);
+			innerJson.AddField("streamId", 0); //FIXME
+			json.AddField("constraints", innerJson);
+			json.AddField("targetId", this.targetId_);
+			return json;
+		}
+	}
+
+	private CallOptions options_;
+
+	public CallParameters(string targetId){
+		this.options_ = new CallOptions(targetId);
+	}
+
+	public JSONObject JsonObject(){
+		var json = new JSONObject(JSONObject.Type.OBJECT);
+		var innerJson = this.options_.JsonObject();
+		json.AddField("callOptions", innerJson);
+		return json;
+	}
+}
+
 public class JanusController{
 	private SocketIOComponent socket_;
 
@@ -82,12 +154,14 @@ public class JanusController{
 	private void OnDisconnect_(SocketIOEvent e){
 		this.socket_.Off("bind", OnBind_);
 		this.socket_.Off("register", OnLogin_);
+		this.socket_.Off("createStream", OnCreateStream_);
 	}
 
 	private void OnOpen_(SocketIOEvent e)
 	{
 		this.socket_.On("bind", OnBind_);
 		this.socket_.On("register", OnLogin_);
+		this.socket_.On("createStream", OnCreateStream_);
 	}
 
 	private void OnBind_(SocketIOEvent e){
@@ -114,8 +188,16 @@ public class JanusController{
 		this.socket_.Emit("register", json);
 	}
 
-	public void CreateStream(string a_port, string v_port){
+	private void OnCreateStream_(SocketIOEvent e){
+		JSONObject obj = e.data;
+		Debug.Log(obj);
+	}
 
+	public void CreateStream(int a_port, int v_port){
+		var peerOptions = new CreateStreamParameters(a_port, v_port);
+		var json = peerOptions.JsonObject();
+		Debug.Log(json);
+		this.socket_.Emit("createStream", json);
 	}
 
 	public void Call(string peerId){

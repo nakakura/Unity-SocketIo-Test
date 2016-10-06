@@ -46,7 +46,7 @@ public class UIController: MonoBehaviour
 		GameObject v_go = GameObject.Find ("VideoPortField");
 		InputField v_field = v_go.GetComponent<InputField> ();
 		var v_port = v_field.text;
-		this.controller_.CreateStream(a_port, v_port);
+		this.controller_.CreateStream(int.Parse(a_port), int.Parse(v_port));
 	}
 
 	public void OnClickCall() {
