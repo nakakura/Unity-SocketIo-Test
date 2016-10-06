@@ -1,8 +1,8 @@
-﻿using UnityEngine;
+using UnityEngine;
+using System;
 using System.Collections;
 using SocketIO;
 
-[System.Serializable]
 public class BrowserOptions{
 	public string plugin;
 	public string server;
@@ -20,48 +20,104 @@ public class BrowserOptions{
 	}
 }
 
-[System.Serializable]
 public class BindParameters{
-		public BrowserOptions browserOptions;
+	public BrowserOptions browserOptions;
 
-		public BindParameters(string server){
-			this.browserOptions = new BrowserOptions(server);
+	public BindParameters(string server){
+		this.browserOptions = new BrowserOptions(server);
+	}
+
+	public JSONObject JsonObject(){
+		var json = new JSONObject(JSONObject.Type.OBJECT);
+		var innerJson = this.browserOptions.JsonObject();
+		json.AddField("browserOptions", innerJson);
+		return json;
+	}
+}
+
+public class LoginParameters{
+	class PeerOptions{
+		private string peerId_;
+
+		public PeerOptions(string peerId){
+			this.peerId_ = peerId;
 		}
 
 		public JSONObject JsonObject(){
 			var json = new JSONObject(JSONObject.Type.OBJECT);
-			var innerJson = this.browserOptions.JsonObject();
-			json.AddField("browserOptions", innerJson);
+			json.AddField("debug", 3);
+			json.AddField("peerId", this.peerId_);
+			json.AddField("secure", true);
+			json.AddField("key", "bbe413aa-6934-11e4-bbe9-3b2b68acb506");
 			return json;
 		}
+	}
+
+	private PeerOptions options_;
+
+	public LoginParameters(string peerId){
+		this.options_ = new PeerOptions(peerId);
+	}
+
+	public JSONObject JsonObject(){
+		var json = new JSONObject(JSONObject.Type.OBJECT);
+		var innerJson = this.options_.JsonObject();
+		json.AddField("peerOptions", innerJson);
+		return json;
+	}
 }
 
 public class JanusController{
 	private SocketIOComponent socket_;
 
 	public JanusController(){
-		//webrtc-server.paas.jp-e1.cloudn-service.com
-		//this.socket_.Connect ();
+		Debug.Log("JanusController constructor");
 		GameObject socket = GameObject.Find ("SocketIO");
+
 		this.socket_ = socket.GetComponent<SocketIOComponent> ();
-		this.socket_.On ("open", OnOpen);
-		this.socket_.On("bind", (message)=>{
-			Debug.Log("lambda");
-			Debug.Log(message);
-		});
+		this.socket_.On ("connect", OnOpen_);
+		this.socket_.On ("disconnect", OnDisconnect_);
 	}
 
-	public void OnOpen(SocketIOEvent e)
+	private void OnDisconnect_(SocketIOEvent e){
+		this.socket_.Off("bind", OnBind_);
+		this.socket_.Off("register", OnLogin_);
+	}
+
+	private void OnOpen_(SocketIOEvent e)
 	{
-		Debug.Log("=====");
-		Debug.Log ("[SocketIO] Open received: " + e.name + " " + e.data);
+		this.socket_.On("bind", OnBind_);
+		this.socket_.On("register", OnLogin_);
 	}
 
-	public void bind(string ipAddress){
+	private void OnBind_(SocketIOEvent e){
+		JSONObject obj = e.data;
+		Debug.Log(obj);
+	}
+
+	public void Bind(string ipAddress){
 		Debug.Log("janus bind");
 		var browserOptions = new BindParameters(ipAddress);
 		var json = browserOptions.JsonObject();
-		Debug.Log(json);
 		this.socket_.Emit("bind", json);
+	}
+
+	private void OnLogin_(SocketIOEvent e){
+		JSONObject obj = e.data;
+		Debug.Log(obj);
+	}
+
+	public void Login(string peerId){
+		var peerOptions = new LoginParameters(peerId);
+		var json = peerOptions.JsonObject();
+		Debug.Log(json);
+		this.socket_.Emit("register", json);
+	}
+
+	public void CreateStream(string a_port, string v_port){
+
+	}
+
+	public void Call(string peerId){
 	}
 }
